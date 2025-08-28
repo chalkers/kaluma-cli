@@ -2,13 +2,14 @@
 
 const fs = require("fs");
 const path = require("path");
-const { program } = require("commander");
-const SerialPort = require("serialport");
+const { program, Command } = require("commander");
+const { SerialPort } = require("serialport");
 const config = require("../package.json");
 const colors = require("colors/safe");
 const filesize = require("file-size");
 
 const flash = require("../lib/flash");
+const flashRead = require("../lib/flash_read");
 const erase = require("../lib/erase");
 const bundle = require("../lib/bundle");
 const put = require("../lib/put");
@@ -113,6 +114,17 @@ async function findPort(portOrQuery, exit) {
 
 program.version(config.version);
 
+// Global examples in help
+program.addHelpText(
+  "after",
+  `
+Examples:
+  $ kaluma ports
+  $ kaluma flash index.js -b -s
+  $ kaluma flash read backup.js
+`
+);
+
 program
   .command("shell")
   .description("[EXPERIMENTAL] shell connect (exit: ctrl+z)")
@@ -122,7 +134,7 @@ program
     const port = await findPort(options.port, true);
 
     // shell connect
-    const serial = new SerialPort(port, serialOptions);
+    const serial = new SerialPort({ path: port, ...serialOptions });
     serial.open(async (err) => {
       if (err) {
         console.error(err);
@@ -168,9 +180,10 @@ program
       });
   });
 
-program
-  .command("flash <file>")
-  .description("flash code (.js file) to device")
+// Define parent 'flash' command. Parent handles default write: `kaluma flash <file>`
+const flashCmd = new Command("flash")
+  .description("flash operations: write code to device or read from device")
+  .argument("<file>")
   .option("-p, --port <port>", optionDescriptions.port, "@2e8a")
   .option("--no-load", optionDescriptions.noLoad, false)
   .option("-b, --bundle", optionDescriptions.bundle, false)
@@ -200,7 +213,7 @@ program
     }
 
     // flash code
-    const serial = new SerialPort(port, serialOptions);
+    const serial = new SerialPort({ path: port, ...serialOptions });
     serial.open(async (err) => {
       if (err) {
         console.error(err);
@@ -252,6 +265,93 @@ program
     });
   });
 
+// flash read: `kaluma flash read <file>`
+flashCmd
+  .command("read <file>")
+  .description("read current flashed code from device to file")
+  .option("-p, --port <port>", optionDescriptions.port, "@2e8a")
+  .option("--stdout", "write program to stdout instead of a file")
+  .option("-q, --quiet", "suppress progress output", false)
+  .option("-t, --timestamp", "append YYYYMMDDTHHMMSS to filename or generate backup-<ts>.js in directory", false)
+  .action(async function (dest, options) {
+    try {
+      let destPath = dest;
+      // Resolve timestamped naming
+      if (options.timestamp) {
+        const ts = new Date().toISOString().replace(/[:.]/g, "").slice(0, 15);
+        const isDir = fs.existsSync(dest) && fs.statSync(dest).isDirectory();
+        if (isDir || /[\\\/]$/.test(dest)) {
+          destPath = path.join(dest, `backup-${ts}.js`);
+        } else {
+          const dir = path.dirname(dest);
+          const base = path.basename(dest);
+          const dot = base.lastIndexOf(".");
+          const name = dot > 0 ? base.slice(0, dot) : base;
+          const ext = dot > 0 ? base.slice(dot) : ".js";
+          destPath = path.join(dir, `${name}-${ts}${ext}`);
+        }
+      }
+      const absPath = options.stdout ? null : path.resolve(destPath);
+      if (!options.stdout) {
+        if (fs.existsSync(absPath)) {
+          console.log(`file already exists: ${destPath}`);
+          return;
+        }
+      }
+
+      // find port
+      const port = await findPort(options.port, true);
+
+      // read
+      const serial = new SerialPort({ path: port, ...serialOptions });
+      serial.open(async (err) => {
+        if (err) {
+          console.error(err);
+        } else {
+          if (!options.quiet && !options.stdout) {
+            console.log(`connected to ${port}`);
+            process.stdout.write(colors.grey("reading "));
+          }
+          try {
+            const result = await flashRead(
+              serial,
+              absPath || "-",
+              (!options.quiet && !options.stdout)
+                ? () => process.stdout.write(colors.grey("."))
+                : undefined,
+              { stdout: !!options.stdout }
+            );
+            if (!options.quiet && !options.stdout) process.stdout.write("\r\n");
+            if (serial.isOpen) serial.close();
+            if (!options.stdout && !options.quiet) {
+              console.log(
+                `${colorName(path.basename(absPath))} ${colorSize(
+                  result.totalBytes || result.receivedBytes || 0
+                )} saved`
+              );
+            }
+          } catch (e) {
+            console.log(e);
+          }
+        }
+      });
+    } catch (e) {
+      console.log(e);
+    }
+  });
+
+// Flash help examples
+flashCmd.addHelpText(
+  "after",
+  `
+Examples:
+  $ kaluma flash index.js -b -s
+  $ kaluma flash read backup.js
+`
+);
+
+program.addCommand(flashCmd);
+
 program
   .command("erase")
   .description("erase code in device")
@@ -261,7 +361,7 @@ program
     const port = await findPort(options.port, true);
 
     // erase
-    const serial = new SerialPort(port, serialOptions);
+    const serial = new SerialPort({ path: port, ...serialOptions });
     serial.open(async (err) => {
       if (err) {
         console.error(err);
@@ -316,7 +416,7 @@ program
     const port = await findPort(options.port, true);
 
     // put
-    const serial = new SerialPort(port, serialOptions);
+    const serial = new SerialPort({ path: port, ...serialOptions });
     serial.open(async (err) => {
       if (err) {
         console.error(err);

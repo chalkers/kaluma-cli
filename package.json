@@ -1,8 +1,11 @@
 {
   "name": "@kaluma/cli",
   "description": "Kaluma CLI (Command Line Interface)",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "author": "Minkyu Lee <niklaus.lee@gmail.com>",
+  "contributors": [
+    "Andrew Chalkley <andrew@chalkley.org>"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/kaluma-project/kaluma-cli.git"
@@ -11,11 +14,11 @@
     "url": "https://github.com/kaluma-project/kaluma-cli/issues"
   },
   "homepage": "https://github.com/kaluma-project/kaluma-cli",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "main": "bin/kaluma.js",
   "preferGlobal": true,
   "engines": {
-    "node": ">=6.9.0"
+    "node": ">=16"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -28,7 +31,7 @@
     "commander": "^8.3.0",
     "crc": "^3.8.0",
     "file-size": "^1.0.0",
-    "serialport": "^9.2.8",
+    "serialport": "^12.0.0",
     "uglify-js": "^3.14.5",
     "webpack": "^5.68.0"
   },

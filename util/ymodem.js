@@ -1,5 +1,6 @@
 const path = require("path");
 const crc16 = require("crc").crc16xmodem;
+// no fs or BufferedSerial needed for transmit-only
 
 const PACKET_SIZE = 1024;
 // const SOH = 0x01 // 128 byte blocks

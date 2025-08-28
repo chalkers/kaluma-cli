@@ -12,6 +12,7 @@ Kaluma CLI is a command-line tool to program devices and boards running [Kaluma]
     - [`help` command](#help-command)
     - [`ports` command](#ports-command)
     - [`flash` command](#flash-command)
+      - [Read flashed program](#read-flashed-program)
     - [`erase` command](#erase-command)
     - [`shell` command](#shell-command)
     - [`bundle` command](#bundle-command)
@@ -27,7 +28,9 @@ Install CLI via `npm` globally.
 npm install -g @kaluma/cli
 ```
 
-If you failed to install, sometime you need to install by building from source as below (e.g. Apple M1, Raspberry Pi, or some Linux).
+Supported Node versions: 16, 18, 20, 22.
+
+If you failed to install, sometimes you need to install by building from source as below (e.g., Apple Silicon, Raspberry Pi, or some Linux).
 
 ```sh
 npm install -g @kaluma/cli --unsafe-perm --build-from-source
@@ -112,6 +115,36 @@ kaluma flash index.js --bundle
 
 # bundle and flash index.js with shell connection
 kaluma flash index.js --shell --bundle
+```
+
+#### Read flashed program
+
+Read current user code from the device to a local file.
+
+```sh
+kaluma flash read <file> [--port <port>] [--stdout] [--timestamp] [--quiet]
+```
+
+- `<file>`: Output path on host to save code. The command aborts if the file already exists (unless `--stdout`). With `--timestamp`, the filename gets `-YYYYMMDDTHHMMSS` appended, or a `backup-<ts>.js` is created if `<file>` is a directory.
+- `-p, --port <port>` option: See [`flash`](#flash-command) command.
+- `--stdout`: Write program to standard output instead of a file.
+- `-t, --timestamp`: Append a timestamp to the filename or generate a timestamped name in a target directory.
+- `-q, --quiet`: Suppress progress dots and summary lines.
+
+Examples:
+
+```sh
+# read current program to 'backup.js'
+kaluma flash read backup.js
+
+# read to a specific path using an explicit port
+kaluma flash read ./backup/usercode.js --port /dev/tty.usbmodem1441
+
+# write to stdout (quiet) and tee to file
+kaluma flash read - --stdout --quiet | tee backup.js
+
+# save with timestamped filename in current directory
+kaluma flash read ./ --timestamp
 ```
 
 ### `erase` command

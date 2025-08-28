@@ -2,11 +2,20 @@ class BufferedSerial {
   constructor(serial) {
     this.serial = serial;
     this.serial.on("data", (chunk) => {
+      // Ensure capacity before appending
+      const needed = this.length + chunk.length;
+      if (needed > this.buffer.length) {
+        let newCap = this.buffer.length;
+        while (newCap < needed) newCap *= 2;
+        const nb = new Uint8Array(newCap);
+        nb.set(this.buffer.subarray(0, this.length), 0);
+        this.buffer = nb;
+      }
       this.buffer.set(chunk, this.length);
       this.length += chunk.length;
     });
 
-    this.buffer = new Uint8Array(1024); // 64K
+    this.buffer = new Uint8Array(4096);
     this.length = 0;
   }
 
@@ -62,6 +71,18 @@ class BufferedSerial {
         return r;
       }
     }
+  }
+
+  async readAwaitWithTimeout(size, timeoutMs) {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      await this.wait(1);
+      const r = this.read(size);
+      if (r && r.length === size) {
+        return r;
+      }
+    }
+    return null;
   }
 
   wait(t) {
